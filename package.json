@@ -1,0 +1,17 @@
+{
+    "name": "collection-view",
+    "version": "1.0.0",
+    "author": "Juh�sz P�ter",
+    "license": "MIT",
+    "private": false,
+    "dependencies": {
+        "rxjs": "*"
+    },
+    "devDependencies": {
+        "typescript": "*"
+    },
+    "scripts": {
+        "build": "tsc",
+        "prepublish": "npm run build"
+    }
+}
