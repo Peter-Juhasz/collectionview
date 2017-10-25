@@ -4,6 +4,7 @@ export declare type Comparable = string | number | boolean | Date;
 export declare type Comparer<T> = (a: T, b: T) => number;
 export declare type Predicate<T> = (obj: T) => boolean;
 export declare type DescriptorChangedEventHandler = () => void;
+export declare type EventHandler<TEventArgs> = (args: TEventArgs) => void;
 /**
  * Represents a view for sorting, filtering, and navigating a data collection.
  */
@@ -11,9 +12,9 @@ export declare class CollectionView<T> {
     constructor(data: T[]);
     constructor(data: Observable<T[]>);
     private _data;
-    /** Gets the original data. */
+    /** Gets the original data as read-only. */
     readonly data: IterableIterator<T>;
-    private setData(data);
+    setData(data: T[]): void;
     /**
      * Gets the actual view.
      */
@@ -22,7 +23,7 @@ export declare class CollectionView<T> {
     private _filteredView;
     readonly filteredView: IterableIterator<T>;
     readonly filters: CollectionViewFilterCollection<T>;
-    filter(predicate: Predicate<T>): void;
+    filter: Predicate<T> | undefined;
     applyFilters(): void;
     private suppressSorting;
     private _sortedView;
@@ -33,7 +34,7 @@ export declare class CollectionView<T> {
     sort<TProperty extends keyof T>(propertyName: TProperty, direction?: SortDirection): void;
     sort<TSelector>(selector: (m: T) => TSelector, direction?: SortDirection): void;
     sort(comparer: Comparer<T>, direction?: SortDirection): void;
-    toggleSortOrderBy(): void;
+    toggleSortOrder(): void;
     toggleSortOrderBy(expression: keyof T): void;
     toggleSortOrderBy(expression: (item: T) => Comparable): void;
     applySorting(): void;
@@ -51,9 +52,21 @@ export declare class CollectionView<T> {
     readonly canNavigateToNextPage: boolean;
     goToPreviousPage(): void;
     goToNextPage(): void;
+    private _handlers;
+    readonly changed: Event<EventHandler<CollectionViewChangedEventArgs<T>>>;
+    private raiseChanged();
     private _observable;
     private _observer;
+    /**
+     * Returns the CollectionView as an Observable. Anytime the actual view changes, it gets pushed to the Observable.
+     */
     asObservable(): Observable<IterableIterator<T>>;
+    private pushToObserver(observer);
+}
+export declare class CollectionViewChangedEventArgs<T> {
+    readonly collectionView: CollectionView<T>;
+    readonly newView: IterableIterator<T>;
+    constructor(collectionView: CollectionView<T>, newView: IterableIterator<T>);
 }
 export declare class CollectionViewFilter<T> {
     readonly name: string;
@@ -118,7 +131,7 @@ export declare enum SortDirection {
     Ascending = 0,
     Descending = 1,
 }
-export declare class Event<TDelegate extends () => void> {
+export declare class Event<TDelegate extends Function> {
     private handlers;
     constructor(handlers: TDelegate[]);
     addEventListener(handler: TDelegate): void;

@@ -59,7 +59,7 @@ export class CollectionView<T> {
     public get filter(): Predicate<T> | undefined {
         if (this.filters.count !== 1)
             return;
-
+        
         return this.filters.getAll().next().value.predicate;
     }
     public set filter(predicate: Predicate<T> | undefined) {
@@ -111,8 +111,8 @@ export class CollectionView<T> {
     }
 
 
-    public sort<TProperty extends keyof T>(propertyName: TProperty, direction?: SortDirection): void
-    public sort<TSelector>(selector: (m: T) => TSelector, direction?: SortDirection): void
+    public sort(propertyName: keyof T, direction?: SortDirection): void
+    public sort<TSelector extends Comparable>(selector: (m: T) => TSelector, direction?: SortDirection): void
     public sort(comparer: Comparer<T>, direction?: SortDirection): void
     public sort(
         expression: keyof T | ((m: T) => Comparable) | Comparer<T>,

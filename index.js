@@ -5,6 +5,7 @@ import "rxjs/add/operator/startWith";
  */
 export class CollectionView {
     constructor(data) {
+        this._data = [];
         // filtering
         this.suppressFiltering = false;
         this.filters = new CollectionViewFilterCollection();
@@ -15,6 +16,8 @@ export class CollectionView {
         this.suppressPaging = false;
         this._pageSize = 10;
         this._pageIndex = 0;
+        this._handlers = [];
+        this.changed = new Event(this._handlers);
         this.filters.changed.addEventListener(() => this.applyFilters());
         this.sorting.changed.addEventListener(() => this.applySorting());
         if (data instanceof Observable) {
@@ -24,7 +27,7 @@ export class CollectionView {
             this.setData(data);
         }
     }
-    /** Gets the original data. */
+    /** Gets the original data as read-only. */
     get data() {
         return this._data.values();
     }
@@ -41,9 +44,17 @@ export class CollectionView {
     get filteredView() {
         return this._filteredView.values();
     }
-    filter(predicate) {
+    get filter() {
+        if (this.filters.count !== 1)
+            return;
+        return this.filters.getAll().next().value.predicate;
+    }
+    set filter(predicate) {
+        this.suppressFiltering = true;
         this.filters.clear();
-        this.filters.add(new CollectionViewFilter("Default", predicate));
+        if (typeof predicate !== "undefined")
+            this.filters.add(new CollectionViewFilter("Default", predicate));
+        this.suppressFiltering = false;
         this.applyFilters();
     }
     applyFilters() {
@@ -75,15 +86,15 @@ export class CollectionView {
         this.suppressSorting = false;
         this.applySorting();
     }
+    toggleSortOrder() {
+        this.suppressSorting = true;
+        for (const descriptor of this.sorting.getAll())
+            descriptor.toggle();
+        this.suppressSorting = false;
+        this.applySorting();
+    }
     toggleSortOrderBy(expression) {
-        if (typeof expression === "undefined") {
-            this.suppressSorting = true;
-            for (const descriptor of this.sorting.getAll())
-                descriptor.toggle();
-            this.suppressSorting = false;
-            this.applySorting();
-        }
-        else if (typeof expression === "string") {
+        if (typeof expression === "string") {
             const descriptor = this.sorting.find(expression);
             if (typeof descriptor === "undefined")
                 throw new Error("Could not find sort descriptor.");
@@ -135,8 +146,7 @@ export class CollectionView {
         if (this.suppressPaging)
             return;
         this._pagedView = this._sortedView.slice(this.pageIndex * this.pageSize, (this.pageIndex + 1) * this.pageSize);
-        if (typeof this._observer !== "undefined")
-            this._observer.next(this.view);
+        this.raiseChanged();
     }
     get canNavigateToPreviousPage() {
         return this.pageIndex > 0;
@@ -154,15 +164,34 @@ export class CollectionView {
             throw new Error("Can't navigate to next page.");
         this.page(this.pageIndex + 1);
     }
+    raiseChanged() {
+        if (this._handlers.length === 0)
+            return;
+        const eventArgs = new CollectionViewChangedEventArgs(this, this.view);
+        this._handlers.forEach(h => h(eventArgs));
+    }
+    /**
+     * Returns the CollectionView as an Observable. Anytime the actual view changes, it gets pushed to the Observable.
+     */
     asObservable() {
         // create and initialize observable lazy
         if (typeof this._observable === "undefined") {
             this._observable = Observable.create((observer) => {
                 this._observer = observer;
+                this.changed.addEventListener(() => this.pushToObserver(observer));
             })
                 .startWith(this.view);
         }
         return this._observable;
+    }
+    pushToObserver(observer) {
+        observer.next(this.view);
+    }
+}
+export class CollectionViewChangedEventArgs {
+    constructor(collectionView, newView) {
+        this.collectionView = collectionView;
+        this.newView = newView;
     }
 }
 export class CollectionViewFilter {
